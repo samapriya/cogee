@@ -74,7 +74,7 @@ def register(pname, bucket_name, collection_path):
             asset_id = object
             asset_id_img = f"{collection_path}/{asset_id}"
             start_date = datetime.strptime(asset_id.split('_')[-3], '%Y%m%d')
-            grid_id = asset_id.split('_')[-2]
+            tile_id = asset_id.split('_')[-2]
             start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
             uri = f"gs://{bucket_name}/{asset_id}.tif"
             cog_manifest = {
@@ -82,7 +82,7 @@ def register(pname, bucket_name, collection_path):
                 "gcs_location": {
                         "uris": [uri]
                 }, 'properties': {
-                    'grid': grid_id
+                    'tile_id': tile_id
                 },
                 "startTime": start_date,
                 "endTime": start_date

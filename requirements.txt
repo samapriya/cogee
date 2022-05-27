@@ -1,0 +1,2 @@
+earthengine_api==0.1.274
+protobuf==3.20.1

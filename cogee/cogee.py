@@ -14,12 +14,19 @@ __license__ = "Apache 2.0"
 
 import argparse
 import json
+import logging
 import os
 from datetime import datetime
 
 import ee
 import google
 from google.cloud import storage
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-4s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 def init(pname):
@@ -36,8 +43,7 @@ def init_from_parser(args):
 
 def bucket_list():
     storage_client = storage.Client()
-    buckets = storage_client.list_buckets()
-    for bucket in buckets:
+    for bucket in storage_client.list_buckets():
         print(bucket.name)
 
 
@@ -45,7 +51,7 @@ def buckets_from_parser(args):
     bucket_list()
 
 
-def register(pname, bucket_name, collection_path):
+def register(bucket_name, prefix, collection_path):
     ee.Initialize()
     try:
         if ee.data.getAsset(collection_path):
@@ -53,7 +59,7 @@ def register(pname, bucket_name, collection_path):
                 "Collection exists: {}".format(
                     ee.data.getAsset(collection_path)["id"])
             )
-    except Exception as e:
+    except Exception:
         print("Collection does not exist: Creating {}".format(collection_path))
         try:
             ee.data.createAsset(
@@ -64,19 +70,32 @@ def register(pname, bucket_name, collection_path):
                 {"type": ee.data.ASSET_TYPE_IMAGE_COLL}, collection_path
             )
     storage_client = storage.Client()
-    blobs = storage_client.list_blobs(bucket_name)
-    gcs_asset_list = [blob.name.split('.tif')[0] for blob in blobs]
+    if prefix is None:
+        blobs = storage_client.list_blobs(
+            bucket_name, prefix="")
+        gcs_asset_list = [blob.name.split('.tif')[0]
+                          for blob in blobs if len(blob.name.split('/')) == 1]
+    else:
+        bucket = storage_client.get_bucket(bucket_name)
+        blobs_specific = list(bucket.list_blobs(
+            prefix=prefix))
+        gcs_asset_list = [blob.name.split('.tif')[0]
+                          for blob in blobs_specific]
     assets_list = ee.data.getList(params={"id": collection_path})
     gee_asset_list = [os.path.basename(asset["id"]) for asset in assets_list]
-    remaining_items = set(gcs_asset_list)-set(gee_asset_list)
+    bucket_list = [asset.split('/')[-1] for asset in gcs_asset_list]
+    remaining_items = set(bucket_list)-set(gee_asset_list)
     if len(remaining_items) > 0:
         for i, object in enumerate(list(remaining_items)):
             asset_id = object
-            asset_id_img = f"{collection_path}/{asset_id}"
+            asset_id_img = f"{collection_path}/{asset_id.split('/')[-1]}"
             start_date = datetime.strptime(asset_id.split('_')[-3], '%Y%m%d')
             tile_id = asset_id.split('_')[-2]
             start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-            uri = f"gs://{bucket_name}/{asset_id}.tif"
+            if prefix is None:
+                uri = f"gs://{bucket_name}/{asset_id}.tif"
+            else:
+                uri = f"gs://{bucket_name}/{prefix}/{asset_id}.tif"
             cog_manifest = {
                 "type": "IMAGE",
                 "gcs_location": {
@@ -87,20 +106,25 @@ def register(pname, bucket_name, collection_path):
                 "startTime": start_date,
                 "endTime": start_date
             }
-            #print(json.dumps(cog_manifest, indent=2))
             try:
                 if ee.data.getAsset(asset_id_img):
                     print(f"Asset {asset_id_img} already exists: SKIPPING")
             except Exception:
-                print(
+                logging.info(
                     f"Ingesting {i+1} of {len(remaining_items)}: {asset_id_img} to {collection_path}")
-                ee.data.createAsset(cog_manifest, asset_id_img)
+                try:
+                    ee.data.createAsset(cog_manifest, asset_id_img)
+                except Exception as error:
+                    print(
+                        f'Failed to ingest {asset_id_img} to {collection_path}')
+            except (KeyboardInterrupt, SystemExit) as error:
+                sys.exit("Program escaped by User")
     elif len(remaining_items) == 0:
         print('All images already exists in collection')
 
 
 def register_from_parser(args):
-    register(pname=args.project, bucket_name=args.bucket,
+    register(bucket_name=args.bucket, prefix=args.prefix,
              collection_path=args.collection)
 
 
@@ -129,9 +153,13 @@ def main(args=None):
     required_named = parser_register.add_argument_group(
         "Required named arguments.")
     required_named.add_argument(
-        "--project", help="Google Cloud Project name", required=True)
-    required_named.add_argument(
         "--bucket", help="Google Cloud Project bucket name", required=True)
+    optional_named = parser_register.add_argument_group(
+        "Optional named arguments")
+    optional_named.add_argument(
+        "--prefix", help="path/to/subfolder/",
+        default=None,
+    )
     required_named.add_argument(
         "--collection", help="GEE collection path", required=True)
     parser_register.set_defaults(func=register_from_parser)

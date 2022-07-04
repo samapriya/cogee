@@ -90,3 +90,10 @@ Simply pass your bucket, your prefix, and your collection path. This tool can cr
 ```
 cogee register --bucket "random-bucket-name" --collection "projects/random/assets/collection_name" --prefix "path/to/subfolder/"
 ```
+
+## Changelog
+
+#### v0.0.3
+
+- allows for registering google service account for GEE
+- allows for providing service account credentials as JSON for authentication 

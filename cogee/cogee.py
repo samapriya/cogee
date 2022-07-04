@@ -13,10 +13,10 @@ __copyright__ = """
 __license__ = "Apache 2.0"
 
 import argparse
-import json
 import logging
 import os
-import subprocess
+import json
+import webbrowser
 from datetime import datetime
 
 import ee
@@ -51,9 +51,29 @@ def bucket_list():
 def buckets_from_parser(args):
     bucket_list()
 
+# Go to the readMe
 
-def register(bucket_name, prefix, collection_path):
-    ee.Initialize()
+
+def account():
+    try:
+        a = webbrowser.open(
+            "https://signup.earthengine.google.com/#!/service_accounts", new=2)
+        if a == False:
+            print("Your setup does not have a monitor to display the webpage")
+    except Exception as e:
+        print(e)
+
+
+def account_from_parser(args):
+    account()
+
+
+def register(bucket_name, prefix, collection_path, cred, account):
+    if cred and account is not None:
+        credentials = ee.ServiceAccountCredentials(account, cred)
+        ee.Initialize(credentials)
+    else:
+        ee.Initialize()
     try:
         if ee.data.getAsset(collection_path):
             print(
@@ -70,16 +90,22 @@ def register(bucket_name, prefix, collection_path):
             ee.data.createAsset(
                 {"type": ee.data.ASSET_TYPE_IMAGE_COLL}, collection_path
             )
+    storage_client = storage.Client()
+    if prefix is None:
+        blobs = storage_client.list_blobs(
+            bucket_name, prefix="")
+        gcs_asset_list = [blob.name.split('.tif')[0]
+                          for blob in blobs if len(blob.name.split('/')) == 1]
+    else:
+        bucket = storage_client.get_bucket(bucket_name)
+        blobs_specific = list(bucket.list_blobs(
+            prefix=prefix))
+        gcs_asset_list = [blob.name.split('.tif')[0]
+                          for blob in blobs_specific]
     assets_list = ee.data.getList(params={"id": collection_path})
     gee_asset_list = [os.path.basename(asset["id"]) for asset in assets_list]
-    check_list = subprocess.check_output(
-        f'gsutil ls "gs://{bucket_name}/{prefix}', shell=True)
-    flist = check_list.decode('ascii').split('\n')
-    gcs_asset_list = [file.split('.tif')[0]
-                      for file in flist if file.endswith('.tif')]
     bucket_list = [asset.split('/')[-1] for asset in gcs_asset_list]
     remaining_items = set(bucket_list)-set(gee_asset_list)
-    print(len(remaining_items))
     if len(remaining_items) > 0:
         for i, object in enumerate(list(remaining_items)):
             asset_id = object
@@ -137,6 +163,11 @@ def main(args=None):
         "--project", help="Google Cloud Project name", required=True)
     parser_init.set_defaults(func=init_from_parser)
 
+    parser_account = subparsers.add_parser(
+        "account", help="Setup/Register Google Service account for use with GEE"
+    )
+    parser_account.set_defaults(func=account_from_parser)
+
     parser_buckets = subparsers.add_parser(
         "buckets", help="Lists all Google Cloud Project buckets"
     )
@@ -149,14 +180,22 @@ def main(args=None):
         "Required named arguments.")
     required_named.add_argument(
         "--bucket", help="Google Cloud Project bucket name", required=True)
+    required_named.add_argument(
+        "--collection", help="GEE collection path", required=True)
     optional_named = parser_register.add_argument_group(
         "Optional named arguments")
     optional_named.add_argument(
         "--prefix", help="path/to/subfolder/",
         default=None,
     )
-    required_named.add_argument(
-        "--collection", help="GEE collection path", required=True)
+    optional_named.add_argument(
+        "--cred", help="Path to Credentials.JSON file for service account",
+        default=None,
+    )
+    optional_named.add_argument(
+        "--account", help="Service account email address",
+        default=None,
+    )
     parser_register.set_defaults(func=register_from_parser)
 
     args = parser.parse_args()

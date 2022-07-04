@@ -1,1 +1,1 @@
-earthengine_api>=0.1.274
+earthengine-api>=0.1.274

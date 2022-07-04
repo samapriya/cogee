@@ -20,6 +20,7 @@ setuptools.setup(
     url="https://github.com/samapriya/cogee",
     install_requires=[
         "earthengine_api>=0.1.274",
+        "google>=3.0.0",
         "protobuf >= 3.20.1"
     ],
     license="Apache 2.0",

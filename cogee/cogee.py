@@ -13,9 +13,9 @@ __copyright__ = """
 __license__ = "Apache 2.0"
 
 import argparse
+import json
 import logging
 import os
-import json
 import webbrowser
 from datetime import datetime
 
@@ -146,7 +146,7 @@ def register(bucket_name, prefix, collection_path, cred, account):
 
 def register_from_parser(args):
     register(bucket_name=args.bucket, prefix=args.prefix,
-             collection_path=args.collection)
+             collection_path=args.collection, cred=args.cred, account=args.account)
 
 
 def main(args=None):

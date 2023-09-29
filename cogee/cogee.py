@@ -22,7 +22,11 @@ from datetime import datetime
 
 import ee
 import google
+import pkg_resources
+import requests
+from bs4 import BeautifulSoup
 from google.cloud import storage
+from google.cloud.exceptions import GoogleCloudError
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-4s %(message)s",
@@ -30,30 +34,115 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+class Solution:
+    """
+    A class for comparing version strings.
+    """
 
-def init(pname):
-    print("Logging into Earth Engine")
-    SCOPES = [
-        "https://www.googleapis.com/auth/cloud-platform",
-        "https://www.googleapis.com/auth/earthengine",
-    ]
-    CREDENTIALS, project_id = google.auth.default(default_scopes=SCOPES)
-    ee.Initialize(CREDENTIALS, project=pname)
+    def compareVersion(self, version1, version2):
+        """
+        Compare two version strings.
+
+        Args:
+            version1 (str): The first version string.
+            version2 (str): The second version string.
+
+        Returns:
+            int: 1 if version1 > version2, -1 if version1 < version2, 0 if equal.
+        """
+        versions1 = [int(v) for v in version1.split(".")]
+        versions2 = [int(v) for v in version2.split(".")]
+        for i in range(max(len(versions1), len(versions2))):
+            v1 = versions1[i] if i < len(versions1) else 0
+            v2 = versions2[i] if i < len(versions2) else 0
+            if v1 > v2:
+                return 1
+            elif v1 < v2:
+                return -1
+        return 0
+
+
+ob1 = Solution()
+
+
+def cogee_version():
+    """
+    Check and notify about the latest version of the 'cogee' package.
+    """
+    url = "https://pypi.org/project/cogee/"
+    source = requests.get(url)
+    html_content = source.text
+    soup = BeautifulSoup(html_content, "html.parser")
+    company = soup.find("h1")
+    vcheck = ob1.compareVersion(
+        company.string.strip().split(" ")[-1],
+        pkg_resources.get_distribution("cogee").version,
+    )
+    if vcheck == 1:
+        print(
+            f"Current version of cogee is {pkg_resources.get_distribution('cogee').version} upgrade to latest version: {company.string.strip().split(' ')[-1]}"
+        )
+    elif vcheck == -1:
+        print(
+            f"Possibly running staging code {pkg_resources.get_distribution('cogee').version} compared to pypi release {company.string.strip().split(' ')[-1]}"
+        )
+
+cogee_version()
+
+
+def init(project):
+    """
+    Initialize and authenticate with Google Earth Engine.
+
+    Args:
+        project (str): The name of the Google Cloud Platform project.
+
+    This function performs the following steps:
+    1. Prints a message indicating the start of the Earth Engine initialization process.
+    2. Specifies the OAuth 2.0 authentication scopes required for Earth Engine access.
+    3. Retrieves the Google Cloud Platform credentials and project ID associated with the specified scopes.
+    4. Initializes the Earth Engine client using the obtained credentials and the specified project name.
+
+    Note: Make sure the necessary Google Cloud Platform and Earth Engine libraries are imported before calling this function.
+    """
+    try:
+        logging.info("Logging into Google Cloud Project & initializing Earth Engine")
+
+        # Define the authentication scopes required for Earth Engine access
+        SCOPES = [
+            "https://www.googleapis.com/auth/cloud-platform",
+            "https://www.googleapis.com/auth/earthengine",
+        ]
+
+        # Retrieve Google Cloud Platform credentials and project ID
+        CREDENTIALS, project_id = google.auth.default(default_scopes=SCOPES)
+
+        # Initialize the Earth Engine client with the obtained credentials and project name
+        ee.Initialize(CREDENTIALS, project=project)
+        logging.info(f'Initialization complete')
+    except Exception as error:
+        logging.error(f'Initialization failed with error {error}')
 
 
 def init_from_parser(args):
-    init(pname=args.project)
+    init(project=args.project)
 
 
-# function to register your service account if not registered
+# Function to register your Earth Engine service account if not registered
 def ee_sa():
+    # Define the URL where users can register their Earth Engine service account
     url = "https://signup.earthengine.google.com/#!/service_accounts"
+
     try:
+        # Attempt to open the URL in a web browser (new=2 means open in a new tab/window)
         a = webbrowser.open(url, new=2)
+
+        # Check if the web browser was successfully opened
         if a == False:
             logging.info("Your setup does not have a monitor to display the webpage")
-            logging.info(f" Go to {url} to register your service account")
+            logging.info(f"Go to {url} to register your service account")
     except Exception as e:
+        # Handle any exceptions that may occur during the process
         logging.exception(e)
 
 
@@ -61,22 +150,70 @@ def ee_sa_from_parser(args):
     ee_sa()
 
 
-def bucket_list():
-    storage_client = storage.Client()
-    for bucket in storage_client.list_buckets():
-        print(bucket.name)
 
+# def bucket_list():
+#     storage_client = storage.Client()
+#     for bucket in storage_client.list_buckets():
+#         print(bucket.name)
+
+def list_buckets(project_id):
+    """
+    List and print the names of all buckets associated with a Google Cloud project.
+
+    Args:
+        project_id (str): The ID of the Google Cloud project containing the buckets.
+
+    Returns:
+        list of str: A list of bucket names.
+    """
+    try:
+        # Initialize a Google Cloud Storage client
+        if project_id is not None:
+            storage_client = storage.Client(project=project_id)
+        else:
+            storage_client = storage.Client()
+        # List and print the names of all buckets in the project
+        bucket_names = [bucket.name for bucket in storage_client.list_buckets()]
+        if bucket_names:
+            for bucket_name in bucket_names:
+                print(bucket_name)
+        else:
+            print("No buckets found or an error occurred.")
+        return bucket_names
+    except GoogleCloudError as e:
+        # Handle Google Cloud errors
+        print(f"Google Cloud Error: {e}")
+        return []
+    except Exception as e:
+        # Handle other exceptions
+        print(f"An error occurred: {e}")
+        return []
 
 def buckets_from_parser(args):
-    bucket_list()
+    list_buckets(project_id=args.pid)
 
 
 def list_tif(bucket_name, prefix, limit):
-    storage_client = storage.Client()
-    blobs = storage_client.list_blobs(
-        bucket_name, prefix=prefix, max_results=int(limit)
-    )
+    """
+    List Cloud Storage objects with a specified prefix and filter by file extension.
 
+    Args:
+        bucket_name (str): The name of the Cloud Storage bucket.
+        prefix (str, optional): Prefix for filtering objects within the bucket.
+        limit (int, optional): Maximum number of results to return.
+
+    Returns:
+        list: List of dictionaries containing properties of matching .tif files.
+    """
+    storage_client = storage.Client()
+    if limit is not None:
+        blobs = storage_client.list_blobs(
+            bucket_name, prefix=prefix, max_results=int(limit)
+        )
+    else:
+        blobs = storage_client.list_blobs(
+            bucket_name, prefix=prefix
+        )
     tif_files = []
 
     for blob in blobs:
@@ -92,20 +229,33 @@ def list_tif(bucket_name, prefix, limit):
 
 
 def subfolders(bucket_name):
-    prefix = ""
+    """
+    List subfolders within a Cloud Storage bucket.
+
+    Args:
+        bucket_name (str): The name of the Cloud Storage bucket.
+    Returns:
+        list: List of subfolder names.
+    """
     storage_client = storage.Client()
     subfolders = set()
+    prefix = ""
+
     try:
+        logging.info(f"Fetching subfolders/prefixes in bucket {bucket_name}")
         blobs = storage_client.list_blobs(bucket_name, prefix="")
+
         for blob in blobs:
-            relative_path = blob.name[len(prefix) :]
+            relative_path = blob.name[len(prefix):]
             parts = relative_path.split("/")
+
             if len(parts) > 1:
                 subfolders.add(parts[0])
-        print(json.dumps(list(subfolders), indent=2))
-    except Exception as error:
-        logging.error(f"Failed to fetch blobs with error {error}")
 
+        print(json.dumps(list(subfolders),indent=2))
+    except Exception as error:
+        logging.error(f"Failed to fetch subfolders with error: {error}")
+        return []
 
 def subfolders_from_parser(args):
     subfolders(bucket_name=args.bucket)
@@ -226,6 +376,8 @@ def main(args=None):
     parser_buckets = subparsers.add_parser(
         "buckets", help="Lists all Google Cloud Project buckets"
     )
+    optional_named = parser_buckets.add_argument_group("Optional named arguments")
+    optional_named.add_argument("--pid", help="Google Project ID", default=None)
     parser_buckets.set_defaults(func=buckets_from_parser)
 
     parser_subfolders = subparsers.add_parser(

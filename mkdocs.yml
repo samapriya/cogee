@@ -1,0 +1,136 @@
+site_name: cogee Simple CLI for COGs in GEE
+site_description: Simple CLI for COGs in GEE
+site_author: Samapriya Roy
+site_url: https://github.com/samapriya
+
+# Repository
+repo_name: cogee
+repo_url: https://github.com/samapriya/cogee
+
+# Copyright
+copyright: "Copyright &copy; 2023 - 2024 Samapriya Roy"
+
+# Configuration
+theme:
+  name: "material"
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+
+  # 404 page
+  static_templates:
+    - 404.html
+
+  # Don't include MkDocs' JavaScript
+  include_search_page: false
+  search_index_only: true
+
+  # Default values, taken from mkdocs_theme.yml
+  language: en
+  palette:
+    - scheme: default
+      primary: teal
+      accent: red
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: purple
+      accent: green
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  font:
+    text: Google Sans
+    code: Regular
+  favicon: assets/favicon.png
+  icon:
+    logo: logo
+
+# Options
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/samapriya
+    - icon: fontawesome/brands/medium
+      link: https://medium.com/@samapriyaroy
+    - icon: fontawesome/brands/mastodon
+      link: https://mapstodon.space/@samapriya
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/samapriyaroy
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/samapriya
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  - minify:
+      minify_html: true
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - meta
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+      options:
+        custom_icons:
+          - overrides/.icons
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: squidfunk
+      repo: mkdocs-material
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page tree
+nav:
+  - cogee A Simple CLI for COGs in GEE: index.md
+  - License: license.md
+  - Prerequisites and Installation: installation.md
+  - cogee Tools:
+      - Initialization tool: tools/init.md
+      - Bucket List Tool: tools/bucket_list.md
+      - Recursive tool: tools/subfolder.md
+      - COG Register Tool: tools/register.md
+  - Changelog: changelog.md

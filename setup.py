@@ -1,28 +1,23 @@
-import os
-import sys
-from distutils.version import StrictVersion
-
 import setuptools
-from setuptools import __version__ as setuptools_version
-from setuptools import find_packages
-from setuptools.command.test import test as TestCommand
 
 
+# Function to read the contents of README.md
 def readme():
     with open("README.md") as f:
         return f.read()
 
-
 setuptools.setup(
     name="cogee",
-    version="0.0.3",
-    packages=find_packages(),
+    version="1.0.0",
+    packages=setuptools.find_packages(),
     url="https://github.com/samapriya/cogee",
     install_requires=[
-        "earthengine-api>=0.1.274"
+        "earthengine-api>=0.1.367",
+        "requests>=2.22.0",
+        "beautifulsoup4>=4.9.0"
     ],
     license="Apache 2.0",
-    long_description=open("README.md").read(),
+    long_description=readme(),
     long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -41,5 +36,9 @@ setuptools.setup(
     author="Samapriya Roy",
     author_email="samapriya.roy@gmail.com",
     description="COG EE flow",
-    entry_points={"console_scripts": ["cogee=cogee.cogee:main"]},
+    entry_points={
+        "console_scripts": [
+            "cogee=cogee.cogee:main"
+        ]
+    },
 )

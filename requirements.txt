@@ -1,1 +1,3 @@
-earthengine-api>=0.1.274
+earthengine-api>=0.1.367
+requests>=2.22.0
+beautifulsoup4>=4.9.0

@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import sys
+import webbrowser
 from datetime import datetime
 
 import ee
@@ -32,14 +33,32 @@ logging.basicConfig(
 
 def init(pname):
     print("Logging into Earth Engine")
-    SCOPES = ['https://www.googleapis.com/auth/cloud-platform',
-              'https://www.googleapis.com/auth/earthengine']
+    SCOPES = [
+        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/earthengine",
+    ]
     CREDENTIALS, project_id = google.auth.default(default_scopes=SCOPES)
     ee.Initialize(CREDENTIALS, project=pname)
 
 
 def init_from_parser(args):
     init(pname=args.project)
+
+
+# function to register your service account if not registered
+def ee_sa():
+    url = "https://signup.earthengine.google.com/#!/service_accounts"
+    try:
+        a = webbrowser.open(url, new=2)
+        if a == False:
+            logging.info("Your setup does not have a monitor to display the webpage")
+            logging.info(f" Go to {url} to register your service account")
+    except Exception as e:
+        logging.exception(e)
+
+
+def ee_sa_from_parser(args):
+    ee_sa()
 
 
 def bucket_list():
@@ -51,9 +70,12 @@ def bucket_list():
 def buckets_from_parser(args):
     bucket_list()
 
-def list_tif(bucket_name, prefix,limit):
+
+def list_tif(bucket_name, prefix, limit):
     storage_client = storage.Client()
-    blobs = storage_client.list_blobs(bucket_name, prefix=prefix,max_results=int(limit))
+    blobs = storage_client.list_blobs(
+        bucket_name, prefix=prefix, max_results=int(limit)
+    )
 
     tif_files = []
 
@@ -61,8 +83,9 @@ def list_tif(bucket_name, prefix,limit):
         if blob.name.lower().endswith(".tif"):
             properties = {
                 "name": blob.name,
-                "time_created": blob.time_created.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "file_size_bytes": blob.size
+                "time_created": blob.time_created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "time_updated": blob.updated.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "file_size_bytes": blob.size,
             }
             tif_files.append(properties)
     return tif_files
@@ -72,16 +95,21 @@ def subfolders(bucket_name):
     prefix = ""
     storage_client = storage.Client()
     subfolders = set()
-    blobs = storage_client.list_blobs(bucket_name, prefix="")
-    for blob in blobs:
-        relative_path = blob.name[len(prefix):]
-        parts = relative_path.split("/")
-        if len(parts) > 1:
-            subfolders.add(parts[0])
-    print(json.dumps(list(subfolders),indent=2))
+    try:
+        blobs = storage_client.list_blobs(bucket_name, prefix="")
+        for blob in blobs:
+            relative_path = blob.name[len(prefix) :]
+            parts = relative_path.split("/")
+            if len(parts) > 1:
+                subfolders.add(parts[0])
+        print(json.dumps(list(subfolders), indent=2))
+    except Exception as error:
+        logging.error(f"Failed to fetch blobs with error {error}")
+
 
 def subfolders_from_parser(args):
     subfolders(bucket_name=args.bucket)
+
 
 def get_property(data_list, target_name):
     matching_dicts = []
@@ -92,13 +120,17 @@ def get_property(data_list, target_name):
 
     return matching_dicts
 
-def register(bucket_name, prefix, collection_path,limit):
-    ee.Initialize()
+
+def register(bucket_name, prefix, collection_path, cred, account, limit):
+    if cred and account is not None:
+        credentials = ee.ServiceAccountCredentials(account, cred)
+        ee.Initialize(credentials)
+    else:
+        ee.Initialize()
     try:
         if ee.data.getAsset(collection_path):
             print(
-                "Collection exists: {}".format(
-                    ee.data.getAsset(collection_path)["id"])
+                "Collection exists: {}".format(ee.data.getAsset(collection_path)["id"])
             )
     except Exception:
         print("Collection does not exist: Creating {}".format(collection_path))
@@ -112,17 +144,20 @@ def register(bucket_name, prefix, collection_path,limit):
             )
     assets_list = ee.data.getList(params={"id": collection_path})
     gee_asset_list = [os.path.basename(asset["id"]) for asset in assets_list]
-    ptif = list_tif(bucket_name, prefix,limit)
-    gcs_asset_list = [file.get('name').split('/')[-1].split('.tif')[0] for file in ptif]
-    remaining_items = set(gcs_asset_list)-set(gee_asset_list)
-    print(f'Items left to register: {len(remaining_items)}')
+    ptif = list_tif(bucket_name, prefix, limit)
+    gcs_asset_list = [file.get("name").split("/")[-1].split(".tif")[0] for file in ptif]
+    remaining_items = set(gcs_asset_list) - set(gee_asset_list)
+    print(f"Items left to register: {len(remaining_items)}")
     if len(remaining_items) > 0:
         for i, object in enumerate(list(remaining_items)):
             asset_id = get_property(ptif, object)[0]
-            asset_id_img = f"{collection_path}/{asset_id.get('name').split('/')[-1].split('.')[0]}"
-            created_date = asset_id.get('time_created')
-            file_size_bytes = asset_id.get('file_size_bytes')
-            #print(asset_id_img,created_date,file_size_bytes)
+            asset_id_img = (
+                f"{collection_path}/{asset_id.get('name').split('/')[-1].split('.')[0]}"
+            )
+            created_date = asset_id.get("time_created")
+            updated_date = asset_id.get("time_updated")
+            file_size_bytes = asset_id.get("file_size_bytes")
+            # print(asset_id_img,created_date,file_size_bytes)
             # tile_id = asset_id.split('_')[-2]
             # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
             if prefix is None:
@@ -131,53 +166,62 @@ def register(bucket_name, prefix, collection_path,limit):
                 uri = f"gs://{bucket_name}/{prefix}/{asset_id.get('name')}"
             cog_manifest = {
                 "type": "IMAGE",
-                "gcs_location": {
-                        "uris": [uri]
-                }, 'properties': {
-                    'file_size_bytes': file_size_bytes
-                },
+                "gcs_location": {"uris": [uri]},
+                "properties": {"file_size_bytes": file_size_bytes},
                 "startTime": created_date,
-                "endTime": created_date
+                "endTime": updated_date,
             }
-            #print(json.dumps(cog_manifest))
+            # print(json.dumps(cog_manifest))
             try:
                 if ee.data.getInfo(asset_id_img) is not None:
                     print(f"Asset {asset_id_img} already exists: SKIPPING")
                 else:
-                    logging.info(
-                        f"Registering {i+1} of {len(remaining_items)}: {asset_id_img} to {collection_path}")
                     try:
                         register = ee.data.createAsset(cog_manifest, asset_id_img)
-                        #print(json.dumps(register, indent=2))
+                        if register.get("id") is not None:
+                            logging.info(
+                                f"Registered {i+1} of {len(remaining_items)}: {asset_id_img} to {collection_path}"
+                            )
                     except Exception as error:
                         print(
-                            f'Failed to register {asset_id_img} to {collection_path} with error {error}')
+                            f"Failed to register {asset_id_img} to {collection_path} with error {error}"
+                        )
             except ee.ee_exception.EEException:
-                print(f'Failed to register {asset_id_img} to {collection_path}')
+                print(f"Failed to register {asset_id_img} to {collection_path}")
             except (KeyboardInterrupt, SystemExit) as error:
                 sys.exit("Program escaped by User")
     elif len(remaining_items) == 0:
-        print('All images already exists in collection')
+        print("All images already exists in collection")
 
 
 def register_from_parser(args):
-    register(bucket_name=args.bucket, prefix=args.prefix,
-             collection_path=args.collection,limit=args.limit)
+    register(
+        bucket_name=args.bucket,
+        prefix=args.prefix,
+        collection_path=args.collection,
+        limit=args.limit,
+        cred=args.cred,
+        account=args.account,
+    )
 
 
 def main(args=None):
     parser = argparse.ArgumentParser(
-        description="Simple CLI for COG registration to GEE")
+        description="Simple CLI for COG registration to GEE"
+    )
     subparsers = parser.add_subparsers()
 
-    parser_init = subparsers.add_parser(
-        "init", help="GEE project auth"
-    )
-    required_named = parser_init.add_argument_group(
-        "Required named arguments.")
+    parser_init = subparsers.add_parser("init", help="GEE project auth")
+    required_named = parser_init.add_argument_group("Required named arguments.")
     required_named.add_argument(
-        "--project", help="Google Cloud Project name", required=True)
+        "--project", help="Google Cloud Project name", required=True
+    )
     parser_init.set_defaults(func=init_from_parser)
+
+    parser_ee_sa = subparsers.add_parser(
+        "account", help="Setup/Register Google Service account for use with GEE"
+    )
+    parser_ee_sa.set_defaults(func=ee_sa_from_parser)
 
     parser_buckets = subparsers.add_parser(
         "buckets", help="Lists all Google Cloud Project buckets"
@@ -185,34 +229,39 @@ def main(args=None):
     parser_buckets.set_defaults(func=buckets_from_parser)
 
     parser_subfolders = subparsers.add_parser(
-        "subfolder", help="Prints subfolder or prefix names"
+        "recursive", help="Prints subfolder or prefix names in a bucket"
     )
-    required_named = parser_subfolders.add_argument_group(
-        "Required named arguments.")
+    required_named = parser_subfolders.add_argument_group("Required named arguments.")
     required_named.add_argument(
-        "--bucket", help="Google Cloud Project bucket name", required=True)
+        "--bucket", help="Google Cloud Project bucket name", required=True
+    )
     parser_subfolders.set_defaults(func=subfolders_from_parser)
-
 
     parser_register = subparsers.add_parser(
         "register", help="Register COGs to GEE collection"
     )
-    required_named = parser_register.add_argument_group(
-        "Required named arguments.")
+    required_named = parser_register.add_argument_group("Required named arguments.")
     required_named.add_argument(
-        "--bucket", help="Google Cloud Project bucket name", required=True)
-    optional_named = parser_register.add_argument_group(
-        "Optional named arguments")
+        "--bucket", help="Google Cloud Project bucket name", required=True
+    )
+    optional_named = parser_register.add_argument_group("Optional named arguments")
+    optional_named.add_argument("--prefix", help="subfolder", default=None)
     optional_named.add_argument(
-        "--prefix", help="subfolder",
+        "--limit", help="Max number of assets to register", default=None
+    )
+    optional_named.add_argument(
+        "--cred",
+        help="Path to Credentials.JSON file for service account",
         default=None,
     )
     optional_named.add_argument(
-        "--limit", help="subfolder",
+        "--account",
+        help="Service account email address",
         default=None,
     )
     required_named.add_argument(
-        "--collection", help="GEE collection path", required=True)
+        "--collection", help="GEE collection path", required=True
+    )
     parser_register.set_defaults(func=register_from_parser)
 
     args = parser.parse_args()

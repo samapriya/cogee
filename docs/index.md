@@ -14,8 +14,6 @@
 
 ![cogee_main](https://github.com/samapriya/cogee/assets/6677629/c1d6e1d6-b1fc-471a-a1fb-ed7de594587b)
 
-You can find information on the tools in [the readme docs](cogee.geetools.xyz)
-
 #### Notes
 
 * This tools is designed for general purpose registration of COGs in a GCS bucket

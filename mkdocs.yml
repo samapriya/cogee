@@ -6,6 +6,7 @@ site_url: https://github.com/samapriya
 # Repository
 repo_name: cogee
 repo_url: https://github.com/samapriya/cogee
+edit_uri: blob/main/docs/
 
 # Copyright
 copyright: "Copyright &copy; 2023 - 2024 Samapriya Roy"

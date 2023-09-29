@@ -1,99 +1,24 @@
-# cogee: COG EE flow
+# cogee A Simple CLI for COGs in GEE
 
-#### Prerequisites
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=plastic&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/samapriya/)
+[![Medium](https://img.shields.io/badge/Medium-12100E?style=flat&logo=medium&logoColor=white)](https://medium.com/@samapriyaroy)
+[![Twitter URL](https://img.shields.io/twitter/follow/samapriyaroy?style=social)](https://twitter.com/intent/follow?screen_name=samapriyaroy)
+[![Mastodon Follow](https://img.shields.io/mastodon/follow/109627075086849826?domain=https%3A%2F%2Fmapstodon.space%2F)](https://mapstodon.space/@samapriya)
+[![Hits-of-Code](https://hitsofcode.com/github/samapriya/gee_asset_manager_addon?branch=master)](https://hitsofcode.com/github/samapriya/cogee?branch=main)
+![PyPI - Version](https://img.shields.io/pypi/v/cogee)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Donate](https://img.shields.io/badge/Donate-Buy%20me%20a%20Chai-teal)](https://www.buymeacoffee.com/samapriya)
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/samapriya)
 
-You need to have the correct permissions to your bucket, your cloud project, and GEE setup for this to work. Also install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) for your OS. The assumption is also that you enable Earth Engine API for your Google Cloud Project
+**`cogee`** is a command-line interface (CLI) designed to simplify the process of registering Cloud Optimized Geotiff (COG) assets into Google Earth Engine (GEE) image collections. It streamlines the workflow of ingesting and managing geospatial data within GEE, enabling users to efficiently access, analyze, and visualize COG assets in their GEE projects. `cogee` simplifies the workflow of registering COG assets into GEE image collections, making it easier for users to harness the power of Google Earth Engine for geospatial analysis and visualization.
 
-- Next setup earthengine credentials using
+![cogee_main](https://github.com/samapriya/cogee/assets/6677629/c1d6e1d6-b1fc-471a-a1fb-ed7de594587b)
 
-```
-earthengine authenticate
-```
+You can find information on the tools in [the readme docs](cogee.geetools.xyz)
 
-- Next initialize your google cloud sdk using
+#### Notes
 
-```
-gcloud init
-```
-
-- Finally create app auth credentials using
-
-```
-gcloud auth application-default login
-```
-
-#### Setup environment
-
-I always recommend that you setup a virtual environment to avoid disrupting anything else. Here is a great [primer on python virtual environment](https://realpython.com/python-virtual-environments-a-primer/)
-
-To install **cogee: COG EE flow simply use**
-
-`pip install cogee`
-
-or you can also try
-
-```
-git clone https://github.com/samapriya/cogee.git
-cd cogee
-python setup.py install
-```
-
-#### Overall tools configuration
-
-The comprehensive tool in its current state only has three options. Depending on how you setup your GEE environment you may or many not need the init tool
-
-```
-usage: cogee.py [-h] {init,buckets,register} ...
-
-Simple CLI for COG registration to GEE
-
-positional arguments:
-  {init,buckets,register}
-    init                GEE project auth
-    buckets             Lists all Google Cloud Project buckets
-    register            Register COGs to GEE collection
-
-optional arguments:
-  -h, --help            show this help message and exit
-```
-
-### cogee buckets
-
-This is a simple tool that lists all buckets under a configured project that is available to you. You can run it by simply using
-
-```
-cogee buckets
-```
-
-#### cogee register
-
-This tool is preconfigured to parse to specific COG names and syntax. Therefore, this is not a general-purpose tool for all registrations but can be modified to fit your needs.
-
-```
-usage: cogee register [-h] --bucket BUCKET [--prefix PREFIX] --collection
-                         COLLECTION
-
-optional arguments:
-  -h, --help            show this help message and exit
-
-Required named arguments.:
-  --bucket BUCKET       Google Cloud Project bucket name
-  --collection COLLECTION
-                        GEE collection path
-
-Optional named arguments:
-  --prefix PREFIX       path/to/subfolder/
-```
-
-Simply pass your bucket, your prefix, and your collection path. This tool can create the collection path for you if it does not exist in GEE unless the path is a nested path and the parent folder is missing
-
-```
-cogee register --bucket "random-bucket-name" --collection "projects/random/assets/collection_name" --prefix "path/to/subfolder/"
-```
-
-## Changelog
-
-#### v0.0.3
-
-- allows for registering google service account for GEE
-- allows for providing service account credentials as JSON for authentication 
+* This tools is designed for general purpose registration of COGs in a GCS bucket
+* Currently there is no way to pass the properties information to the registration pipeline
+* This will be in active development and features will be added over time.
+* v1.0.0 marks the first major release of this tool.

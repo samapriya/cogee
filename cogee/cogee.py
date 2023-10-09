@@ -89,6 +89,24 @@ def cogee_version():
 
 cogee_version()
 
+# Go to the readMe
+def readme():
+    try:
+        a = webbrowser.open(
+            "https://cogee.geetools.xyz", new=2
+        )
+        if a == False:
+            print("Your setup does not have a monitor to display the webpage")
+            print(
+                " Go to {}".format(
+                    "https://cogee.geetools.xyz"
+                )
+            )
+    except Exception as e:
+        print(e)
+
+def read_from_parser(args):
+    readme()
 
 def init(project):
     """
@@ -360,6 +378,11 @@ def main(args=None):
         description="Simple CLI for COG registration to GEE"
     )
     subparsers = parser.add_subparsers()
+
+    parser_read = subparsers.add_parser(
+        "readme", help="Go the web based cogee readme page"
+    )
+    parser_read.set_defaults(func=read_from_parser)
 
     parser_init = subparsers.add_parser("init", help="GEE project auth")
     required_named = parser_init.add_argument_group("Required named arguments.")

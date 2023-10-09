@@ -8,7 +8,7 @@ def readme():
 
 setuptools.setup(
     name="cogee",
-    version="1.0.0",
+    version="1.0.1",
     packages=setuptools.find_packages(),
     url="https://github.com/samapriya/cogee",
     install_requires=[

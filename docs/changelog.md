@@ -1,5 +1,8 @@
 # Changelog
 
+### v1.0.1
+- added readme helper to tool
+
 ### v1.0.0
 - Major release that includes better tool definitions
 - Now includes better error handling and stability

@@ -1,5 +1,5 @@
 __copyright__ = """
-    Copyright 2022 Samapriya Roy
+    Copyright 2023-2024 Samapriya Roy
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import ee
@@ -168,12 +169,6 @@ def ee_sa_from_parser(args):
     ee_sa()
 
 
-
-# def bucket_list():
-#     storage_client = storage.Client()
-#     for bucket in storage_client.list_buckets():
-#         print(bucket.name)
-
 def list_buckets(project_id):
     """
     List and print the names of all buckets associated with a Google Cloud project.
@@ -213,7 +208,7 @@ def buckets_from_parser(args):
 
 def list_tif(bucket_name, prefix, limit):
     """
-    List Cloud Storage objects with a specified prefix and filter by file extension.
+    List Cloud Storage objects with a specified prefix
 
     Args:
         bucket_name (str): The name of the Cloud Storage bucket.
@@ -289,77 +284,77 @@ def get_property(data_list, target_name):
     return matching_dicts
 
 
+def register_single_asset(bucket_name, prefix, collection_path, cred, account, asset_id):
+    if cred and account is not None:
+        credentials = ee.ServiceAccountCredentials(account, cred)
+        ee.Initialize(credentials)
+    else:
+        ee.Initialize()
+
+    asset_id_img = f"{collection_path}/{asset_id.get('name').split('/')[-1].split('.')[0]}"
+    created_date = asset_id.get("time_created")
+    updated_date = asset_id.get("time_updated")
+    file_size_bytes = asset_id.get("file_size_bytes")
+
+    if prefix is None:
+        uri = f"gs://{bucket_name}/{asset_id.get('name')}"
+    else:
+        uri = f"gs://{bucket_name}/{prefix}/{asset_id.get('name')}"
+
+    cog_manifest = {
+        "type": "IMAGE",
+        "gcs_location": {"uris": [uri]},
+        "properties": {"file_size_bytes": file_size_bytes},
+        "startTime": created_date,
+        "endTime": updated_date,
+    }
+
+    try:
+        if ee.data.getInfo(asset_id_img) is not None:
+            print(f"Asset {asset_id_img} already exists: SKIPPING")
+        else:
+            try:
+                register = ee.data.createAsset(cog_manifest, asset_id_img)
+                if register.get("id") is not None:
+                    logging.info(f"Registered {asset_id_img} to {collection_path}")
+            except Exception as error:
+                print(f"Failed to register {asset_id_img} with error {error}")
+    except ee.ee_exception.EEException:
+        print(f"Failed to register {asset_id_img}")
+    except (KeyboardInterrupt, SystemExit) as error:
+        sys.exit("Program escaped by User")
+
 def register(bucket_name, prefix, collection_path, cred, account, limit):
     if cred and account is not None:
         credentials = ee.ServiceAccountCredentials(account, cred)
         ee.Initialize(credentials)
     else:
         ee.Initialize()
+
     try:
         if ee.data.getAsset(collection_path):
-            print(
-                "Collection exists: {}".format(ee.data.getAsset(collection_path)["id"])
-            )
+            print(f"Collection exists: {ee.data.getAsset(collection_path)['id']}")
     except Exception:
-        print("Collection does not exist: Creating {}".format(collection_path))
+        print(f"Collection does not exist: Creating {collection_path}")
         try:
-            ee.data.createAsset(
-                {"type": ee.data.ASSET_TYPE_IMAGE_COLL_CLOUD}, collection_path
-            )
+            ee.data.createAsset({"type": ee.data.ASSET_TYPE_IMAGE_COLL_CLOUD}, collection_path)
         except Exception:
-            ee.data.createAsset(
-                {"type": ee.data.ASSET_TYPE_IMAGE_COLL}, collection_path
-            )
+            ee.data.createAsset({"type": ee.data.ASSET_TYPE_IMAGE_COLL}, collection_path)
+
     assets_list = ee.data.getList(params={"id": collection_path})
     gee_asset_list = [os.path.basename(asset["id"]) for asset in assets_list]
     ptif = list_tif(bucket_name, prefix, limit)
     gcs_asset_list = [file.get("name").split("/")[-1].split(".tif")[0] for file in ptif]
     remaining_items = set(gcs_asset_list) - set(gee_asset_list)
     print(f"Items left to register: {len(remaining_items)}")
+
     if len(remaining_items) > 0:
-        for i, object in enumerate(list(remaining_items)):
-            asset_id = get_property(ptif, object)[0]
-            asset_id_img = (
-                f"{collection_path}/{asset_id.get('name').split('/')[-1].split('.')[0]}"
-            )
-            created_date = asset_id.get("time_created")
-            updated_date = asset_id.get("time_updated")
-            file_size_bytes = asset_id.get("file_size_bytes")
-            # print(asset_id_img,created_date,file_size_bytes)
-            # tile_id = asset_id.split('_')[-2]
-            # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-            if prefix is None:
-                uri = f"gs://{bucket_name}/{asset_id.get('name')}"
-            else:
-                uri = f"gs://{bucket_name}/{prefix}/{asset_id.get('name')}"
-            cog_manifest = {
-                "type": "IMAGE",
-                "gcs_location": {"uris": [uri]},
-                "properties": {"file_size_bytes": file_size_bytes},
-                "startTime": created_date,
-                "endTime": updated_date,
-            }
-            # print(json.dumps(cog_manifest))
-            try:
-                if ee.data.getInfo(asset_id_img) is not None:
-                    print(f"Asset {asset_id_img} already exists: SKIPPING")
-                else:
-                    try:
-                        register = ee.data.createAsset(cog_manifest, asset_id_img)
-                        if register.get("id") is not None:
-                            logging.info(
-                                f"Registered {i+1} of {len(remaining_items)}: {asset_id_img} to {collection_path}"
-                            )
-                    except Exception as error:
-                        print(
-                            f"Failed to register {asset_id_img} to {collection_path} with error {error}"
-                        )
-            except ee.ee_exception.EEException:
-                print(f"Failed to register {asset_id_img} to {collection_path}")
-            except (KeyboardInterrupt, SystemExit) as error:
-                sys.exit("Program escaped by User")
+        with ThreadPoolExecutor() as executor:  # Use ThreadPoolExecutor for concurrent execution
+            for i, object in enumerate(list(remaining_items)):
+                asset_id = get_property(ptif, object)[0]
+                executor.submit(register_single_asset, bucket_name, prefix, collection_path, cred, account, asset_id)
     elif len(remaining_items) == 0:
-        print("All images already exists in collection")
+        print("All images already exist in the collection")
 
 
 def register_from_parser(args):
@@ -371,7 +366,6 @@ def register_from_parser(args):
         cred=args.cred,
         account=args.account,
     )
-
 
 def main(args=None):
     parser = argparse.ArgumentParser(

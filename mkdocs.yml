@@ -14,6 +14,7 @@ copyright: "Copyright &copy; 2023 - 2024 Samapriya Roy"
 # Configuration
 theme:
   name: "material"
+  custom_dir: overrides
   features:
     - announce.dismiss
     - content.action.edit
@@ -69,6 +70,9 @@ extra:
       link: https://twitter.com/samapriyaroy
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/samapriya
+  analytics:
+    provider: google
+    property: G-T555EK0E15
 
 extra_css:
   - stylesheets/extra.css

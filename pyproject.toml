@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cogee"
+version = "1.0.3"
+description = "COG EE flow - Cloud Optimized GeoTIFF registration for Google Earth Engine"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Samapriya Roy", email = "samapriya.roy@gmail.com"}
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = [
+    "earthengine-api>=0.1.367",
+    "requests>=2.22.0",
+    "rasterio>=1.3.0",
+    "google-cloud-storage>=2.0.0",
+    "google-auth>=2.0.0",
+    "packaging>=20.0",
+    "rich>=10.0.0",
+    "tqdm>=4.60.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/samapriya/cogee"
+Documentation = "https://cogee.geetools.xyz"
+Repository = "https://github.com/samapriya/cogee"
+Issues = "https://github.com/samapriya/cogee/issues"
+
+[project.scripts]
+cogee = "cogee.cogee:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cogee*"]
+exclude = ["tests*"]
